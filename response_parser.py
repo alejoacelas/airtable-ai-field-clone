@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional
+import pandas as pd
 
 
 def parse_xml_tags(text: str, tags: Iterable[str]) -> Dict[str, str]:
@@ -76,5 +77,40 @@ def handle_parsing_errors(text: str) -> Dict[str, str]:
     cleaned = re.sub(r"^```[a-zA-Z]*\n", "", cleaned)
     cleaned = re.sub(r"\n```$", "", cleaned)
     return {"answer": cleaned}
+
+
+def extract_tags_from_dataframe(df: pd.DataFrame, tag_name: str) -> pd.DataFrame:
+    """Extract content from XML tags in a dataframe, preserving structure.
+    
+    For each column, if it contains <tag>content</tag>, replace the cell value 
+    with the extracted content. If no tag is found, leave empty or original content.
+    
+    Args:
+        df: Input dataframe with potential XML-tagged content
+        tag_name: Name of XML tag to extract (e.g., 'sources', 'answer')
+        
+    Returns:
+        New dataframe with same structure but extracted tag content
+    """
+    if df.empty:
+        return df.copy()
+        
+    result_df = df.copy()
+    
+    for col in result_df.columns:
+        for idx in result_df.index:
+            cell_value = str(result_df.loc[idx, col]) if pd.notna(result_df.loc[idx, col]) else ""
+            
+            if cell_value:
+                # Extract tag content using existing parse_xml_tags function
+                extracted = parse_xml_tags(cell_value, [tag_name])
+                tag_content = extracted.get(tag_name, "")
+                
+                # Replace cell with extracted content (empty if no tag found)
+                result_df.loc[idx, col] = tag_content
+            else:
+                result_df.loc[idx, col] = ""
+    
+    return result_df
 
 

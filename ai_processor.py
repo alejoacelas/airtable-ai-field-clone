@@ -64,10 +64,6 @@ def setup_openai_client() -> Tuple[Any, str]:
 
 
 _DOUBLE_BRACE_PATTERN = re.compile(r"\{\{\s*([a-zA-Z0-9_\- ]+)\s*\}\}")
-_SINGLE_BRACE_DEFAULT_PATTERN = re.compile(
-    r"\{\s*([a-zA-Z0-9_\- ]+)\s*:\s*([^}]+?)\s*\}"
-)
-_SINGLE_BRACE_PATTERN = re.compile(r"\{\s*([a-zA-Z0-9_\- ]+)\s*\}")
 
 
 def build_prompt_with_references(
@@ -76,44 +72,21 @@ def build_prompt_with_references(
 ) -> str:
     """Substitute column references inside a template string.
 
-    Supported syntaxes:
+    Supported syntax:
     - {{column_name}}
-    - {column_name}
-    - {column_name:default_value}
 
-    Whitespace around names is ignored. If a value is missing, default is used
-    when provided; otherwise empty string.
+    Whitespace around names is ignored. If a value is missing, empty string is used.
     """
 
     def normalize_key(raw: str) -> str:
         return raw.strip()
 
-    result = prompt_template
-
-    # Handle default form first to avoid colliding with single-brace matches
-    def replace_default(match: re.Match[str]) -> str:
-        key = normalize_key(match.group(1))
-        default_value = match.group(2)
-        value = row_values.get(key, None)
-        return str(value) if value not in (None, "") else str(default_value)
-
-    result = _SINGLE_BRACE_DEFAULT_PATTERN.sub(replace_default, result)
-
-    # Replace double braces
     def replace_double(match: re.Match[str]) -> str:
         key = normalize_key(match.group(1))
         value = row_values.get(key, "")
         return "" if value is None else str(value)
 
-    result = _DOUBLE_BRACE_PATTERN.sub(replace_double, result)
-
-    # Replace single braces without default
-    def replace_single(match: re.Match[str]) -> str:
-        key = normalize_key(match.group(1))
-        value = row_values.get(key, "")
-        return "" if value is None else str(value)
-
-    result = _SINGLE_BRACE_PATTERN.sub(replace_single, result)
+    result = _DOUBLE_BRACE_PATTERN.sub(replace_double, prompt_template)
     return result
 
 

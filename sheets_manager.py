@@ -14,12 +14,12 @@ class SheetsManager:
         self.spreadsheet_url: Optional[str] = None
         self.spreadsheet_id: Optional[str] = None
         self.worksheets = {
-            "main_data": "Main_Data",
+            "main_data": "Main",
             "prompt_config": "Prompt_Config", 
-            "extract_sources": "Extract_Sources",
-            "extract_reasoning": "Extract_Reasoning",
-            "extract_annotations": "Extract_Annotations",
-            "extract_answer": "Extract_Answer"
+            "extract_sources": "Sources",
+            "extract_reasoning": "Reasoning",
+            "extract_annotations": "Annotations",
+            "extract_answer": "Answer"
         }
     
     @staticmethod
@@ -108,11 +108,8 @@ class SheetsManager:
     def _create_worksheet(self, worksheet_name: str, worksheet_key: str):
         """Create a new worksheet with appropriate structure."""
         if worksheet_key == "main_data":
-            # Create main data worksheet with system columns
+            # Create main data worksheet
             initial_data = pd.DataFrame({
-                "_id": [],
-                "_created_at": [],
-                "_updated_at": [],
                 "sample_column": []
             })
         elif worksheet_key == "prompt_config":
@@ -125,12 +122,9 @@ class SheetsManager:
                 "is_active": []
             })
         else:
-            # Create extraction worksheets
+            # Create extraction worksheets with same structure as main data
             initial_data = pd.DataFrame({
-                "row_id": [],
-                "original_column": [],
-                "extracted_content": [],
-                "extraction_date": []
+                "sample_column": []
             })
             
         try:
@@ -159,24 +153,14 @@ class SheetsManager:
         try:
             df = self.conn.read(worksheet=self.worksheets["main_data"], ttl=0)
             
-            # Ensure system columns exist
-            if "_id" not in df.columns:
-                df["_id"] = range(1, len(df) + 1)
-            if "_created_at" not in df.columns:
-                df["_created_at"] = datetime.now().isoformat()
-            if "_updated_at" not in df.columns:
-                df["_updated_at"] = datetime.now().isoformat()
+            # No system columns needed
                 
             return df
             
         except Exception as e:
             st.warning(f"Could not load existing data: {str(e)}")
-            # Return empty DataFrame with system columns
-            return pd.DataFrame({
-                "_id": [],
-                "_created_at": [],
-                "_updated_at": []
-            })
+            # Return empty DataFrame
+            return pd.DataFrame()
     
     def load_prompt_config(self) -> pd.DataFrame:
         """Load prompt configuration from Google Sheets."""
@@ -185,6 +169,14 @@ class SheetsManager:
             
         try:
             df = self.conn.read(worksheet=self.worksheets["prompt_config"], ttl=0)
+            
+            # Convert boolean columns from float to boolean
+            if not df.empty:
+                boolean_columns = ['replace_mode', 'web_search', 'is_active']
+                for col in boolean_columns:
+                    if col in df.columns:
+                        df[col] = df[col].astype(bool)
+            
             return df
             
         except Exception as e:
@@ -204,22 +196,6 @@ class SheetsManager:
             return False
             
         try:
-            # Update timestamps
-            current_time = datetime.now().isoformat()
-            
-            # Add _id if missing
-            if "_id" not in data.columns or data["_id"].isnull().any():
-                data["_id"] = range(1, len(data) + 1)
-                
-            # Update _updated_at for all rows
-            data["_updated_at"] = current_time
-            
-            # Add _created_at for new rows
-            if "_created_at" not in data.columns:
-                data["_created_at"] = current_time
-            else:
-                data.loc[data["_created_at"].isnull(), "_created_at"] = current_time
-            
             self.conn.update(worksheet=self.worksheets["main_data"], data=data)
             return True
             
@@ -308,7 +284,12 @@ class SheetsManager:
         if self.conn:
             try:
                 # Test connection by reading a small amount of data
-                test_df = self.conn.read(worksheet=self.worksheets["main_data"], ttl=0, usecols=[0], nrows=1)
+                _ = self.conn.read(
+                    worksheet=self.worksheets["main_data"],
+                    ttl=0,
+                    usecols=[0],
+                    nrows=1
+                )
                 status["test_read_success"] = True
             except Exception as e:
                 status["test_read_success"] = False
