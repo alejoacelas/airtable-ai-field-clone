@@ -1,0 +1,7 @@
+openai
+tenacity
+pandas
+st-gsheets-connection
+xmltodict
+python-dotenv
+streamlit

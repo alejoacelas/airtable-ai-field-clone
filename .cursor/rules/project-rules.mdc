@@ -1,0 +1,205 @@
+---
+alwaysApply: true
+---
+# Guidelines
+
+## Package Management
+
+This project uses **uv** for Python package management. Use `uv` commands instead of pip:
+
+```bash
+# Install dependencies
+uv sync
+
+# Add new packages
+uv add package-name
+
+# Run Python scripts
+uv run python app.py
+
+# Run streamlit
+uv run streamlit run app.py
+```
+
+## Development Commands
+
+### Running the Application
+```bash
+# Start the Streamlit app (main command)
+uv run streamlit run app.py
+```
+
+### Testing Scripts
+```bash
+# Test Google Sheets connection
+uv run python scripts/check_sheets_manager.py
+
+# Test OpenAI integration
+uv run python scripts/test_openai.py
+
+# Test Streamlit + OpenAI integration
+uv run python scripts/test_openai_streamlit_integration.py
+```
+
+## Project Architecture
+
+This is a **Streamlit-based AI spreadsheet interface** that connects Google Sheets with OpenAI's API for AI-powered data processing.
+
+### Core Components
+
+**Main Application (`app.py`)**
+- Streamlit interface with multi-tab layout (Main Data, Sources, Reasoning, Annotations, Answer)
+- Session state management for data persistence
+- UI components for data editing and prompt configuration
+
+**Google Sheets Integration (`sheets_manager.py`)**
+- `SheetsManager` class handles all Google Sheets operations
+- Automatic worksheet creation for data storage and AI extractions
+- Supports flexible sheet ID extraction from various URL formats
+- Uses `st-gsheets-connection` for Streamlit integration
+
+**AI Processing (`ai_processor.py`)**
+- OpenAI API integration with async batch processing
+- Column reference substitution in prompts (e.g., `{column_name}`)
+- Exponential backoff retry logic using tenacity
+
+**Response Processing (`response_parser.py`)**
+- XML tag extraction from AI responses
+- Structured parsing for `<sources>`, `<reasoning>`, `<annotations>`, `<answer>` tags
+
+### Data Flow
+
+1. **Data Management**: Edit spreadsheet data in Streamlit interface with add/delete capabilities
+2. **Prompt Configuration**: Set up AI prompts for each column with reference capabilities  
+3. **AI Processing**: Execute prompts via OpenAI API with column value substitution
+4. **Response Extraction**: Parse AI responses into structured XML sections
+5. **Persistence**: Auto-sync all data and results to Google Sheets
+
+### Google Sheets Structure
+
+The application creates these worksheets automatically:
+- `Main_Data`: Primary data with system columns (`_id`, `_created_at`, `_updated_at`)
+- `Prompt_Config`: AI prompt configurations for each column
+- `Extract_Sources`: Content from `<sources>` tags
+- `Extract_Reasoning`: Content from `<reasoning>` tags
+- `Extract_Annotations`: Content from `<annotations>` tags
+- `Extract_Answer`: Content from `<answer>` tags
+
+### Configuration
+
+**Secrets Configuration** (`.streamlit/secrets.toml`):
+```toml
+[connections.gsheets]
+spreadsheet = "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/..."
+type = "service_account"
+# Google Service Account credentials...
+
+[openai]
+api_key = "your_openai_api_key"
+```
+
+**Environment Variables**:
+- `OPENAI_API_KEY`: OpenAI API key
+- Service account JSON for Google Sheets access
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Package Management
+
+This project uses **uv** for Python package management. Use `uv` commands instead of pip:
+
+```bash
+# Install dependencies
+uv sync
+
+# Add new packages
+uv add package-name
+
+# Run Python scripts
+uv run python app.py
+
+# Run streamlit
+uv run streamlit run app.py
+```
+
+## Development Commands
+
+### Running the Application
+```bash
+# Start the Streamlit app (main command)
+uv run streamlit run app.py
+```
+
+### Testing Scripts
+```bash
+# Test Google Sheets connection
+uv run python scripts/check_sheets_manager.py
+
+# Test OpenAI integration
+uv run python scripts/test_openai.py
+
+# Test Streamlit + OpenAI integration
+uv run python scripts/test_openai_streamlit_integration.py
+```
+
+## Project Architecture
+
+This is a **Streamlit-based AI spreadsheet interface** that connects Google Sheets with OpenAI's API for AI-powered data processing.
+
+### Core Components
+
+**Main Application (`app.py`)**
+- Streamlit interface with multi-tab layout (Main Data, Sources, Reasoning, Annotations, Answer)
+- Session state management for data persistence
+- UI components for data editing and prompt configuration
+
+**Google Sheets Integration (`sheets_manager.py`)**
+- `SheetsManager` class handles all Google Sheets operations
+- Automatic worksheet creation for data storage and AI extractions
+- Supports flexible sheet ID extraction from various URL formats
+- Uses `st-gsheets-connection` for Streamlit integration
+
+**AI Processing (`ai_processor.py`)**
+- OpenAI API integration with async batch processing
+- Column reference substitution in prompts (e.g., `{column_name}`)
+- Exponential backoff retry logic using tenacity
+
+**Response Processing (`response_parser.py`)**
+- XML tag extraction from AI responses
+- Structured parsing for `<sources>`, `<reasoning>`, `<annotations>`, `<answer>` tags
+
+### Data Flow
+
+1. **Data Management**: Edit spreadsheet data in Streamlit interface with add/delete capabilities
+2. **Prompt Configuration**: Set up AI prompts for each column with reference capabilities  
+3. **AI Processing**: Execute prompts via OpenAI API with column value substitution
+4. **Response Extraction**: Parse AI responses into structured XML sections
+5. **Persistence**: Auto-sync all data and results to Google Sheets
+
+### Google Sheets Structure
+
+The application creates these worksheets automatically:
+- `Main_Data`: Primary data with system columns (`_id`, `_created_at`, `_updated_at`)
+- `Prompt_Config`: AI prompt configurations for each column
+- `Extract_Sources`: Content from `<sources>` tags
+- `Extract_Reasoning`: Content from `<reasoning>` tags
+- `Extract_Annotations`: Content from `<annotations>` tags
+- `Extract_Answer`: Content from `<answer>` tags
+
+### Configuration
+
+**Secrets Configuration** (`.streamlit/secrets.toml`):
+```toml
+[connections.gsheets]
+spreadsheet = "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/..."
+type = "service_account"
+# Google Service Account credentials...
+
+[openai]
+api_key = "your_openai_api_key"
+```
+
+**Environment Variables**:
+- `OPENAI_API_KEY`: OpenAI API key
+- Service account JSON for Google Sheets access
