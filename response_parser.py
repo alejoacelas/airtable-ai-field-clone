@@ -82,34 +82,47 @@ def handle_parsing_errors(text: str) -> Dict[str, str]:
 def extract_tags_from_dataframe(df: pd.DataFrame, tag_name: str) -> pd.DataFrame:
     """Extract content from XML tags in a dataframe, preserving structure.
     
-    For each column, if it contains <tag>content</tag>, replace the cell value 
-    with the extracted content. If no tag is found, leave empty or original content.
+    Column-level processing:
+    - If ANY cell in a column contains the target tag, extract tag content from ALL cells in that column
+    - If NO cells in a column contain the target tag, preserve ALL original values in that column
     
     Args:
         df: Input dataframe with potential XML-tagged content
         tag_name: Name of XML tag to extract (e.g., 'sources', 'answer')
         
     Returns:
-        New dataframe with same structure but extracted tag content
+        New dataframe with same structure but column-wise tag extraction
     """
     if df.empty:
         return df.copy()
         
     result_df = df.copy()
     
+    # Phase 1: Detect which columns contain any cells with the target tag
+    columns_with_tags = set()
+    
     for col in result_df.columns:
         for idx in result_df.index:
             cell_value = str(result_df.loc[idx, col]) if pd.notna(result_df.loc[idx, col]) else ""
-            
             if cell_value:
-                # Extract tag content using existing parse_xml_tags function
                 extracted = parse_xml_tags(cell_value, [tag_name])
-                tag_content = extracted.get(tag_name, "")
-                
-                # Replace cell with extracted content (empty if no tag found)
-                result_df.loc[idx, col] = tag_content
-            else:
-                result_df.loc[idx, col] = ""
+                if extracted.get(tag_name, "").strip():  # Has non-empty tag content
+                    columns_with_tags.add(col)
+                    break  # Found tag in this column, no need to check other cells
+    
+    # Phase 2: Process columns based on whether they contain tags
+    for col in result_df.columns:
+        if col in columns_with_tags:
+            # Column has tags - extract content from each cell (may be empty for some cells)
+            for idx in result_df.index:
+                cell_value = str(result_df.loc[idx, col]) if pd.notna(result_df.loc[idx, col]) else ""
+                if cell_value:
+                    extracted = parse_xml_tags(cell_value, [tag_name])
+                    tag_content = extracted.get(tag_name, "")
+                    result_df.loc[idx, col] = tag_content
+                else:
+                    result_df.loc[idx, col] = ""
+        # else: Column has no tags - leave original values unchanged (do nothing)
     
     return result_df
 

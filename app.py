@@ -53,27 +53,28 @@ def initialize_session_state():
         st.session_state.sheets_connected = False
 
 
-def get_current_main_data() -> pd.DataFrame:
+def copy_sheets_main_data() -> pd.DataFrame:
     """Get the most current version of main data (editor version if available, else sheets version)."""
-    # If editor version has content, use it
-    if hasattr(st.session_state, 'editor_main_data') and not st.session_state.editor_main_data.empty:
-        return st.session_state.editor_main_data
-    # Otherwise use sheets version
     if hasattr(st.session_state, 'sheets_main_data'):
-        return st.session_state.sheets_main_data
-    # Fallback to empty DataFrame
+        return st.session_state.sheets_main_data.copy()
     return pd.DataFrame()
 
-
-def get_current_prompt_config() -> pd.DataFrame:
+def copy_sheets_prompt_config() -> pd.DataFrame:
     """Get the most current version of prompt config (editor version if available, else sheets version)."""
-    # If editor version has content, use it
-    if hasattr(st.session_state, 'editor_prompt_config') and not st.session_state.editor_prompt_config.empty:
-        return st.session_state.editor_prompt_config
-    # Otherwise use sheets version
     if hasattr(st.session_state, 'sheets_prompt_config'):
-        return st.session_state.sheets_prompt_config
-    # Fallback to empty DataFrame
+        return st.session_state.sheets_prompt_config.copy()
+    return pd.DataFrame()
+
+def get_editor_main_data() -> pd.DataFrame:
+    """Get the most current version of main data (editor version if available, else sheets version)."""
+    if hasattr(st.session_state, 'editor_main_data'):
+        return st.session_state.editor_main_data.copy()
+    return pd.DataFrame()
+
+def get_editor_prompt_config() -> pd.DataFrame:
+    """Get the most current version of prompt config (editor version if available, else sheets version)."""
+    if hasattr(st.session_state, 'editor_prompt_config'):
+        return st.session_state.editor_prompt_config.copy()
     return pd.DataFrame()
 
 
@@ -123,17 +124,13 @@ def render_control_panel():
     """Render control panel in sidebar."""
     st.sidebar.header("🎛️ Control Panel")
     
-    col1, col2 = st.sidebar.columns(2)
+    if st.sidebar.button("💾 Save to Sheets", disabled=not st.session_state.sheets_connected):
+        save_all_data()
+        
+    if st.sidebar.button("🔄 Load from Sheets", disabled=not st.session_state.sheets_connected):
+        load_all_data()
     
-    with col1:
-        if st.button("💾 Save to Sheets", disabled=not st.session_state.sheets_connected):
-            save_all_data()
-            
-    with col2:
-        if st.button("🔄 Load from Sheets", disabled=not st.session_state.sheets_connected):
-            load_all_data()
-    
-    if st.button("🚀 Run AI Prompts", disabled=not st.session_state.sheets_connected):
+    if st.sidebar.button("🚀 Run AI Prompts", disabled=not st.session_state.sheets_connected):
         run_ai_prompts()
     
     # Configuration options
@@ -151,8 +148,8 @@ def save_all_data():
     try:
         with st.spinner("Saving to Google Sheets..."):
             # Use editor versions as the source of truth for saving
-            editor_main_data = get_current_main_data()
-            editor_prompt_config = get_current_prompt_config()
+            editor_main_data = get_editor_main_data()
+            editor_prompt_config = get_editor_prompt_config()
             
             # Save main data
             if not editor_main_data.empty:
@@ -202,8 +199,8 @@ def run_ai_prompts():
     """Execute AI prompts on the configured columns."""
     try:
         # Get current data versions
-        current_main_data = get_current_main_data()
-        current_prompt_config = get_current_prompt_config()
+        current_main_data = get_editor_main_data()
+        current_prompt_config = get_editor_prompt_config()
         
         # Validate we have data and configuration
         if current_main_data.empty:
@@ -241,7 +238,7 @@ async def process_prompts_async(active_prompts: pd.DataFrame):
         
         # Build jobs for each row and active column
         jobs = []
-        main_data = get_current_main_data().copy()
+        main_data = get_editor_main_data().copy()
         
         for _, prompt_config in active_prompts.iterrows():
             column_name = prompt_config['column_name']
@@ -346,15 +343,14 @@ def render_prompt_configuration():
     st.subheader("🎯 Prompt Configuration")
     
     # Get column names from current main data
-    current_main_data = get_current_main_data()
-    if not current_main_data.empty:
-        available_columns = list(current_main_data.columns)
-    else:
-        available_columns = ["sample_column"]
+    current_main_data = copy_sheets_main_data()
+    available_columns = list(current_main_data.columns)
     
     # Initialize editor prompt config if empty
-    if st.session_state.editor_prompt_config.empty:
-        st.session_state.editor_prompt_config = pd.DataFrame({
+    display_prompt_config = copy_sheets_prompt_config()
+    
+    if display_prompt_config.empty:
+        display_prompt_config = pd.DataFrame({
             "column_name": available_columns,
             "prompt_text": ["LOCKED"] * len(available_columns),
             "replace_mode": [False] * len(available_columns),
@@ -363,7 +359,7 @@ def render_prompt_configuration():
         })
     
     # Update config if new columns are added
-    existing_columns = set(st.session_state.editor_prompt_config["column_name"].tolist())
+    existing_columns = set(display_prompt_config["column_name"].tolist())
     new_columns = [col for col in available_columns if col not in existing_columns]
     
     if new_columns:
@@ -374,12 +370,12 @@ def render_prompt_configuration():
             "web_search": [False] * len(new_columns),
             "is_active": [True] * len(new_columns)
         })
-        st.session_state.editor_prompt_config = pd.concat([st.session_state.editor_prompt_config, new_config], 
+        display_prompt_config = pd.concat([display_prompt_config, new_config], 
                                                  ignore_index=True)
     
     # Display editable configuration
     edited_config = st.data_editor(
-        st.session_state.editor_prompt_config,
+        display_prompt_config,
         column_config={
             "column_name": st.column_config.SelectboxColumn(
                 "Column Name",
@@ -412,25 +408,18 @@ def render_prompt_configuration():
     
     # Update editor_prompt_config from editor directly
     st.session_state.editor_prompt_config = edited_config
-    
-    # Return current prompt config
-    return st.session_state.editor_prompt_config
 
 def render_main_data_editor():
     """Render main data editor."""
     st.subheader("📊 Data Editor")
     
-    # Initialize with sample data if empty
-    if st.session_state.editor_main_data.empty and st.session_state.sheets_main_data.empty:
-        st.session_state.editor_main_data = pd.DataFrame({
+    display_data = copy_sheets_main_data()
+    
+    if display_data.empty:
+        display_data = pd.DataFrame({
             "sample_column": ["Sample data 1", "Sample data 2", "Sample data 3"]
         })
-    
-    # Use current main data for display
-    current_data = get_current_main_data()
-    
-    # Convert all columns to string to prevent type enforcement
-    display_data = current_data.copy()
+        
     for col in display_data.columns:
         display_data[col] = display_data[col].astype(str)
     
@@ -443,8 +432,6 @@ def render_main_data_editor():
     
     # Update editor version with changes
     st.session_state.editor_main_data = edited_data
-    
-    return edited_data
 
 def render_extraction_tabs():
     """Render extraction tabs for XML content."""
@@ -505,7 +492,7 @@ def main():
     for tab, tag_name in extraction_tabs_data:
         with tab:
             # Get current main data and extract tag content
-            current_main_data = get_current_main_data()
+            current_main_data = copy_sheets_main_data()
             if not current_main_data.empty:
                 # Extract tag content from main data
                 extracted_df = extract_tags_from_dataframe(current_main_data, tag_name)

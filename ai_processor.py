@@ -56,7 +56,7 @@ def setup_openai_client() -> Tuple[Any, str]:
             "OPENAI_API_KEY is not set. Provide it via Streamlit secrets or environment."
         )
 
-    default_model = os.getenv("DEFAULT_MODEL", "gpt-4.1")
+    default_model = os.getenv("DEFAULT_MODEL", "gpt-5")
     openai_mod = importlib.import_module("openai")
     AsyncOpenAI = getattr(openai_mod, "AsyncOpenAI")
     client = AsyncOpenAI(api_key=api_key)
@@ -179,13 +179,19 @@ async def _call_responses_api(
         wait_random_exponential = getattr(tenacity, "wait_random_exponential")
         stop_after_attempt = getattr(tenacity, "stop_after_attempt")
 
-        @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
+        @retry(wait=wait_random_exponential(min=5, max=60 * 5), stop=stop_after_attempt(6))
         async def _inner() -> str:
             tools = [{"type": tool_type}] if needs_search else []
+            args = {
+                "model": model,
+                "input": prompt,
+                "tools": tools,  # type: ignore[arg-type]
+            }
+            reasoning_args = {"reasoning": {"effort": "high"}}
+            args = args | reasoning_args if model == "gpt-5" and needs_search else args
+            
             response = await client.responses.create(
-                model=model,
-                input=prompt,
-                tools=tools,  # type: ignore[arg-type]
+                **args
             )
             return _get_text_from_response(response)
 
