@@ -179,7 +179,7 @@ async def _call_responses_api(
         wait_random_exponential = getattr(tenacity, "wait_random_exponential")
         stop_after_attempt = getattr(tenacity, "stop_after_attempt")
 
-        @retry(wait=wait_random_exponential(min=5, max=60 * 5), stop=stop_after_attempt(6))
+        @retry(wait=wait_random_exponential(min=1, max=60 * 5), stop=stop_after_attempt(7))
         async def _inner() -> str:
             tools = [{"type": tool_type}] if needs_search else []
             args = {
